@@ -16,6 +16,12 @@ import com.google.gson.reflect.TypeToken
 
 class MainActivity : AppCompatActivity() {
 
+    // Fragment側でも利用する共通のKey
+    companion object {
+        val updateMemoKey = "UPDATE_MEMO_TEXT_KEY"
+        val updateMemoPositionKey = "UPDATE_MEMO_POSITION_KEY"
+    }
+
     // メモ入力画面（Fragment）を識別するタグ
     val fragmentTag = "MEMO_DETAIL_FRAGMENT"
 
@@ -47,6 +53,35 @@ class MainActivity : AppCompatActivity() {
 
         listView = findViewById(R.id.list_view)
 
+        // Activityに対してツールバーを設定する。これでツールバーでの操作がActivityに影響を与えられるようになる
+        setSupportActionBar(toolbar)
+
+        // activity_main.xmlに含まれる、フローティングアクションボタンをインスタンス化
+        val fab = findViewById<FloatingActionButton>(R.id.fab)
+
+        // リストビューに表示されている項目をタップした時の動作
+        listView?.setOnItemClickListener { parent, view, position, id ->
+            val transaction = supportFragmentManager.beginTransaction()
+
+            // メモ入力画面に切り替え
+            fab.setImageDrawable(applicationContext.getDrawable(R.drawable.ic_check))
+
+            // データを渡す為のBundleを生成し、渡すデータを内包させる
+            val bundle = Bundle()
+            // 保存されているメモの情報をbundleに格納
+            bundle.putString(updateMemoKey, memos.get(position))
+            // タップされたメモの場所をbundleに格納
+            bundle.putInt(updateMemoPositionKey, position)
+
+            // Fragmentを生成し、setArgumentsで先ほどのbundleをセットする
+            val fragment = MemoDetailFragment()
+            // bundleに格納したmemoの情報をfragmentに渡す
+            fragment.setArguments(bundle)
+
+            transaction.add(R.id.fragment_container, fragment, fragmentTag)
+            transaction.commit()
+        }
+
         // リストビューに表示されてる項目を長押しした時の動作を設定。
         listView?.setOnItemLongClickListener { parent, view, position, id ->
 
@@ -67,12 +102,6 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        // Activityに対してツールバーを設定する。これでツールバーでの操作がActivityに影響を与えられるようになる
-        setSupportActionBar(toolbar)
-
-        // activity_main.xmlに含まれる、フローティングアクションボタンをインスタンス化
-        val fab = findViewById<FloatingActionButton>(R.id.fab)
-
         // フローティングアクションボタンに対して、タップ時の動作を設定する。
         fab.setOnClickListener { view ->
             val transaction = supportFragmentManager.beginTransaction()
@@ -90,8 +119,14 @@ class MainActivity : AppCompatActivity() {
                 (view as FloatingActionButton).setImageDrawable(applicationContext.getDrawable(R.drawable.ic_add))
 
                 val fragment = supportFragmentManager.findFragmentByTag(fragmentTag) as MemoDetailFragment
-                memos.add(fragment.getMemoDetailText())
-
+                // メモの更新位置を取得
+                val memoPosition = fragment.getMemoPosition()
+                // 更新位置がマイナスの場合は新規作成、あった場合はメモを更新する
+                if (memoPosition < 0){
+                    memos.add(fragment.getMemoDetailText())
+                } else {
+                    memos.set(memoPosition, fragment.getMemoDetailText())
+                }
                 updateMemoList()
                 transaction.remove(fragment)
                 transaction.commit()
